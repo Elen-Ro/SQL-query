@@ -1,0 +1,60 @@
+SELECT EMPLOYEES.employee_id, 
+       d.department_id as department_id,
+       d.department_name as department_name,
+       EMPLOYEES.first_name, EMPLOYEES.last_name,
+       d.vol as CNT
+FROM EMPLOYEES 
+JOIN (
+    SELECT d1.DEPARTMENT_ID, count(*) as vol, d1.DEPARTMENT_NAME
+    FROM DEPARTMENTS d1
+    JOIN EMPLOYEES e1 on (d1.DEPARTMENT_ID = e1.DEPARTMENT_ID)
+    GROUP BY d1.DEPARTMENT_ID, d1.DEPARTMENT_NAME
+    HAVING count(*) > 5
+) d on (EMPLOYEES.DEPARTMENT_ID = d.DEPARTMENT_ID)
+ORDER BY d.DEPARTMENT_ID, EMPLOYEES.last_name
+
+=================================================================
+
+
+SELECT DEPARTMENT_ID,
+       EMPLOYEE_ID,
+       FIRST_NAME,
+       LAST_NAME,
+       SALARY,
+       RANK() OVER (PARTITION BY department_id ORDER BY salary desc) as SALARY_RANK
+FROM EMPLOYEES;
+
+
+=================================================================
+
+  CREATE OR REPLACE EDITIONABLE TRIGGER "TRG_EMPLOYMENT_PAY_CHK" BEFORE
+   INSERT OR UPDATE on EMPLOYMENT_PAY
+   for each row
+DECLARE
+   min_sal jobs.min_salary%type;
+   max_sal jobs.max_salary%type;
+BEGIN
+   SELECT j.min_salary, j.max_salary into min_sal, max_sal
+   FROM jobs j
+   inner join employment em
+   on j.job_guid = em.job_guid
+   inner join employment_pay ep
+   on em.employment_guid = ep.employment_guid;
+
+      IF :new.salary < min_sal or :new.salary > max_sal then
+      raise_application_error(-20000, 'The salary does not meet the condition (must be between min and max).');
+END IF;
+END;
+
+================================================================
+
+CREATE OR REPLACE EDITIONABLE TRIGGER "TRG_LOCATIONS_CHK" BEFORE
+   INSERT OR UPDATE on LOCATIONS
+   for each row
+BEGIN
+   IF NOT REGEXP_LIKE (:new.POSTAL_CODE, '^[ABCEGHJKLMNPRSTVXY][0-9][ABCEGHJKLMNPRSTVWXYZ][ -]?[0-9][ABCEGHJKLMNPRSTVWXYZ][0-9]$')
+   and NOT REGEXP_LIKE (:new.POSTAL_CODE, '([[:digit:]]{5})(-[[:digit:]]{4})?$') 
+   then raise_application_error(-20000, 'The postal code does not meet the conditions');
+END IF;
+END;
+
